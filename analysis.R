@@ -125,7 +125,7 @@ overall_win_prob <- tidy_win_prob %>%
 	summarize(mean=mean(won))
 
 
-#Plot the fraction games that the favorite has won over the history of baseball
+# Plot the fraction games that the favorite has won over the history of baseball
 tidy_win_prob %>%
 	group_by(season, model) %>%
 	summarize(fraction_favorite_won = mean(won)) %>%
