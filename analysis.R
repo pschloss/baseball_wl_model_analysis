@@ -114,57 +114,75 @@ favorite_win_prob <- favorite_win_prob %>%
 	select(season, date, team1, team2, score1, score2, fav_538_won, fav_538_prob, fav_wplive_won, fav_wplive_prob, fav_wpcurrent_won, fav_wpcurrent_prob, fav_wpprev_won, fav_wpprev_prob)
 
 
+fwp <- c("ANA", "ARI", "ATL", "BAL", "BOS", "CHC", "CHW", "CIN", "CLE", "COL",
+"DET", "FLA", "HOU", "KCR", "LAD", "MIL", "MIN", "NYM", "NYY", "OAK",
+"PHI", "PIT", "SDP", "SEA", "SFG", "STL", "TBD", "TEX", "TOR", "WSN")
 
-money_line <- read_csv("data/money_line.csv")
+ml <- c("LAA", "ARI", "ATL", "BAL", "BOS", "CHC", "CWS", "CIN", "CLE", "COL",
+"DET", "MIA", "HOU", "KC", "LAD", "MIL", "MIN", "NYM", "NYY", "OAK",
+"PHI", "PIT", "SD", "SEA", "SF", "STL", "TB", "TEX", "TOR", "WSH")
 
+name_convert <- tibble(fwp=fwp, ml=ml)
 
-
-
-
-
-
-
-
+favorite_win_prob <- read_csv("data/money_line.csv") %>%
+	drop_na() %>%
+	mutate(money_prob1=map_dbl(money_line1, get_moneyline_prob),
+				 money_prob2=map_dbl(money_line2, get_moneyline_prob),
+				 fav_money_won=ifelse(money_prob1 > money_prob2, score1 > score2, score2 > score1),	
+				 fav_money_prob=ifelse(money_prob1 > money_prob2, money_prob1, money_prob2)
+				 ) %>%
+	inner_join(., name_convert, by=c("team1"="ml")) %>%
+	inner_join(., name_convert, by=c("team2"="ml")) %>%
+	select(-team1, -team2) %>%
+	rename(team1=fwp.x, team2=fwp.y) %>%
+	inner_join(favorite_win_prob, .,
+						 by=c("date", "team1"="team2", "team2"="team1", "score1"="score2", "score2"="score1")) %>%
+	select(-money_line1, -money_line2, -money_prob1, -money_prob2)
+	favorite_win_prob
 
 
 # make the data frame "tidy"
-tidy_win_prob <- favorite_win_prob %>% 
+tidy_win_prob <- favorite_win_prob %>%
 	mutate(fte=paste(fav_538_won, fav_538_prob, sep="_"),
 				 wplive=paste(fav_wplive_won, fav_wplive_prob, sep="_"),
 				 wpcurrent=paste(fav_wpcurrent_won, fav_wpcurrent_prob, sep="_"),
-				 wpprev=paste(fav_wpprev_won, fav_wpprev_prob, sep="_")) %>%
+				 wpprev=paste(fav_wpprev_won, fav_wpprev_prob, sep="_"),
+				 winprob=paste(fav_money_won, fav_money_prob, sep="_")
+				 ) %>%
 	select(-starts_with("fav")) %>%
-	gather(model, won_prob, fte, wplive, wpcurrent, wpprev) %>%
+	gather(model, won_prob, fte, wplive, wpcurrent, wpprev, winprob) %>%
 	separate(won_prob, into=c("won", "prob"), sep="_", convert=TRUE)
-
 
 
 overall_win_prob <- tidy_win_prob %>%
 	group_by(model) %>%
-	summarize(mean=mean(won))
-
+	summarize(mean=mean(won)) %>%
+	filter(model=="fte" | model == "winprob" | model == "wpcurrent")
+	
 
 # Plot the fraction games that the favorite has won over the history of baseball
 tidy_win_prob %>%
+	filter(model=="fte" | model == "winprob" | model == "wpcurrent") %>%
 	group_by(season, model) %>%
 	summarize(fraction_favorite_won = mean(won)) %>%
 	ungroup() %>%
 	ggplot(aes(x=season, y=fraction_favorite_won, group=model, color=model)) +
-	geom_hline(data=overall_win_prob, aes(yintercept=mean, group=model, color=model)) +
-	geom_line() + 
-	theme_classic() +
-	coord_cartesian(ylim=c(0,1)) +
-	labs(x="Season", y="Fraction of games favorite won",
-			 title="The Winning Percentage model can out perform the 538 ELO model if it uses end of\nseason winning averages") +
-	scale_color_manual(name=NULL,
-										 breaks=c("fte", "wpcurrent", "wplive", "wpprev"),
-										 labels=c("538", "WP Curent", "WP Live", "WP Previous"),
-										 values=wes_palette("Darjeeling2"))
+		geom_hline(data=overall_win_prob, aes(yintercept=mean, group=model, color=model)) +
+		geom_line() +
+		theme_classic() +
+		coord_cartesian(ylim=c(0,1)) +
+		labs(x="Season", y="Fraction of games favorite won",
+		title="The Winning Percentage model can out perform the 538 ELO model if it uses end of\nseason winning averages") +
+		scale_color_manual(name=NULL,
+			breaks=c("fte", "winprob", "wpcurrent"),
+			labels=c("538", "Win Prob", "WP Curent"),
+			values=wes_palette("Darjeeling2"))
 
 
 
 # Plot the observed versus expected fraction of games won by the favorite
 tidy_win_prob %>% 
+	filter(model=="fte" | model == "winprob" | model == "wpcurrent") %>%
 	mutate(prob = round(prob, digits=2)) %>%
 	group_by(prob, model) %>%
 	summarize(games = n(),
@@ -175,31 +193,9 @@ tidy_win_prob %>%
 		geom_line() +
 		theme_classic() + 
 		scale_color_manual(name=NULL,
-										 breaks=c("fte", "wpcurrent", "wplive", "wpprev"),
-										 labels=c("538", "WP Curent", "WP Live", "WP Previous"),
+										 breaks=c("fte", "winprob", "wpcurrent"),
+										 labels=c("538", "Win Prob", "WP Curent"),
 										 values=wes_palette("Darjeeling2")) +
 		labs(x="Predicted Win Probability", y="Observed Win Probability",
-				 title="The 538 and WP Current models generate more reliable win probabilities than the\nWP Live or Previous models",
-				 subtitle="All data since 1871")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+				 title="The thre models do an excellent job of predicting the true fraction of games that the favorite will win",
+				 subtitle="All data since 2009")
