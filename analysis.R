@@ -13,7 +13,7 @@ library(tidyverse)
 library(lubridate)
 library(broom)
 library("wesanderson")
-
+library(rvest)
 
 get_wp <- function(A, B){
 	
@@ -25,7 +25,13 @@ get_wp <- function(A, B){
 	
 }
 
-
+get_moneyline_prob <- function(x){
+	if(x < 100) {
+		-x/(-x+100)
+	} else {
+		100 / (x+100)
+	}
+}
 
 current_date <- now()
 
@@ -106,6 +112,19 @@ favorite_win_prob <- favorite_win_prob %>%
 				 fav_wpprev_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2)
 				 ) %>%
 	select(season, date, team1, team2, score1, score2, fav_538_won, fav_538_prob, fav_wplive_won, fav_wplive_prob, fav_wpcurrent_won, fav_wpcurrent_prob, fav_wpprev_won, fav_wpprev_prob)
+
+
+
+money_line <- read_csv("data/money_line.csv")
+
+
+
+
+
+
+
+
+
 
 
 # make the data frame "tidy"
