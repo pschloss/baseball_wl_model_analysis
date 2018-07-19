@@ -16,13 +16,13 @@ library("wesanderson")
 library(rvest)
 
 get_wp <- function(A, B){
-	
+
 	if((A == 0 && B == 0) || (A == 1 && B == 1)){
 		0.5
 	} else {
 		A * (1-B) / (A*(1-B) + B*(1-A))
 	}
-	
+
 }
 
 get_moneyline_prob <- function(x){
@@ -33,7 +33,7 @@ get_moneyline_prob <- function(x){
 	}
 }
 
-current_date <- now()
+current_date <- today()
 
 
 # Load and format baseball games that have already been played
@@ -67,10 +67,10 @@ win_losses_live <- favorite_win_prob %>%
 	mutate(wins=c(0, na.omit(lag(cumsum(win)))),
 				 losses=c(0, na.omit(lag(cumsum(!win)))),
 				 avg=c(0, na.omit(wins/(wins+losses)))
-				 )  %>% 
+				 )  %>%
 	ungroup() %>%
 	select(season, team, date, avg)
-	
+
 
 win_losses_season <- favorite_win_prob %>%
 	mutate(win1=score1>score2,
@@ -95,7 +95,7 @@ favorite_win_prob <- favorite_win_prob %>%
 				 fav_wplive_won=ifelse(win_prob1 > win_prob2, score1 > score2, score2 > score1),
 				 fav_wplive_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2)) %>%
 	select(season, date, team1, team2, score1, score2, fav_538_won, fav_538_prob, fav_wplive_won, fav_wplive_prob)
-	
+
 
 # join in win_losses_season into favorite_win_prob
 favorite_win_prob <- favorite_win_prob %>%
@@ -105,7 +105,7 @@ favorite_win_prob <- favorite_win_prob %>%
 				 win_prob2=1-win_prob1,
 				 fav_wpcurrent_won=ifelse(win_prob1 > win_prob2, score1 > score2, score2 > score1),
 				 fav_wpcurrent_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2),
-				 
+
 				 win_prob1=map2_dbl(prev_avg.x, prev_avg.y, get_wp),
 				 win_prob2=1-win_prob1,
 				 fav_wpprev_won=ifelse(win_prob1 > win_prob2, score1 > score2, score2 > score1),
@@ -128,7 +128,7 @@ favorite_win_prob <- read_csv("data/money_line.csv") %>%
 	drop_na() %>%
 	mutate(money_prob1=map_dbl(money_line1, get_moneyline_prob),
 				 money_prob2=map_dbl(money_line2, get_moneyline_prob),
-				 fav_money_won=ifelse(money_prob1 > money_prob2, score1 > score2, score2 > score1),	
+				 fav_money_won=ifelse(money_prob1 > money_prob2, score1 > score2, score2 > score1),
 				 fav_money_prob=ifelse(money_prob1 > money_prob2, money_prob1, money_prob2)
 				 ) %>%
 	inner_join(., name_convert, by=c("team1"="ml")) %>%
@@ -136,7 +136,7 @@ favorite_win_prob <- read_csv("data/money_line.csv") %>%
 	select(-team1, -team2) %>%
 	rename(team1=fwp.x, team2=fwp.y) %>%
 	inner_join(favorite_win_prob, .,
-						 by=c("date", "team1"="team2", "team2"="team1", "score1"="score2", "score2"="score1")) %>%
+						 by=c("date", "team1", "team2", "score1", "score2")) %>%
 	select(-money_line1, -money_line2, -money_prob1, -money_prob2)
 	favorite_win_prob
 
@@ -158,7 +158,7 @@ overall_win_prob <- tidy_win_prob %>%
 	group_by(model) %>%
 	summarize(mean=mean(won)) %>%
 	filter(model=="fte" | model == "winprob" | model == "wpcurrent")
-	
+
 
 # Plot the fraction games that the favorite has won over the history of baseball
 tidy_win_prob %>%
@@ -181,7 +181,7 @@ tidy_win_prob %>%
 
 
 # Plot the observed versus expected fraction of games won by the favorite
-tidy_win_prob %>% 
+tidy_win_prob %>%
 	filter(model=="fte" | model == "winprob" | model == "wpcurrent") %>%
 	mutate(prob = round(prob, digits=2)) %>%
 	group_by(prob, model) %>%
@@ -191,7 +191,7 @@ tidy_win_prob %>%
 	ggplot(aes(x=prob,  y=observed, group=model, color=model)) +
 		geom_abline(aes(intercept=0, slope=1), color="gray") +
 		geom_line() +
-		theme_classic() + 
+		theme_classic() +
 		scale_color_manual(name=NULL,
 										 breaks=c("fte", "winprob", "wpcurrent"),
 										 labels=c("538", "Win Prob", "WP Curent"),
