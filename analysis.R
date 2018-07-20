@@ -54,8 +54,10 @@ game_data <- read_csv(file="https://projects.fivethirtyeight.com/mlb-api/mlb_elo
 # Ascertain the favorite and whether they won according to the 538 ELO model
 favorite_win_prob <- game_data %>%
 	mutate(fav_538_won=ifelse(rating_prob1>rating_prob2, score1 > score2, score2 > score1),
-				 fav_538_prob=ifelse(rating_prob1>rating_prob2, rating_prob1, rating_prob2)) %>%
-	select(season, game, date, team1, team2, score1, score2, fav_538_won, fav_538_prob)
+				 fav_538_prob=ifelse(rating_prob1>rating_prob2, rating_prob1, rating_prob2),
+				 fav_538_team=ifelse(rating_prob1>rating_prob2, team1, team2),
+				) %>%
+	select(season, game, date, team1, team2, score1, score2, fav_538_won, fav_538_prob, fav_538_team)
 
 
 win_losses_live <- favorite_win_prob %>%
@@ -96,8 +98,11 @@ favorite_win_prob <- favorite_win_prob %>%
 	mutate(win_prob1=map2_dbl(avg.x, avg.y, get_wp),
 				 win_prob2=1-win_prob1,
 				 fav_wplive_won=ifelse(win_prob1 > win_prob2, score1 > score2, score2 > score1),
-				 fav_wplive_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2)) %>%
-	select(season, date, game, team1, team2, score1, score2, fav_538_won, fav_538_prob, fav_wplive_won, fav_wplive_prob)
+				 fav_wplive_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2),
+				 fav_wplive_team=ifelse(win_prob1 > win_prob2, team1, team2)) %>%
+	select(season, date, game, team1, team2, score1, score2,
+				 fav_538_won, fav_538_prob, fav_538_team,
+				 fav_wplive_won, fav_wplive_prob, fav_wplive_team)
 
 
 # join in win_losses_season into favorite_win_prob
@@ -108,13 +113,18 @@ favorite_win_prob <- favorite_win_prob %>%
 				 win_prob2=1-win_prob1,
 				 fav_wpcurrent_won=ifelse(win_prob1 > win_prob2, score1 > score2, score2 > score1),
 				 fav_wpcurrent_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2),
-
+				 fav_wpcurrent_team=ifelse(win_prob1 > win_prob2, team1, team2),
+				 
 				 win_prob1=map2_dbl(prev_avg.x, prev_avg.y, get_wp),
 				 win_prob2=1-win_prob1,
 				 fav_wpprev_won=ifelse(win_prob1 > win_prob2, score1 > score2, score2 > score1),
-				 fav_wpprev_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2)
-				 ) %>%
-	select(season, date, game, team1, team2, score1, score2, fav_538_won, fav_538_prob, fav_wplive_won, fav_wplive_prob, fav_wpcurrent_won, fav_wpcurrent_prob, fav_wpprev_won, fav_wpprev_prob)
+				 fav_wpprev_prob=ifelse(win_prob1 > win_prob2, win_prob1, win_prob2),
+				 fav_wpprev_team=ifelse(win_prob1 > win_prob2, team1, team2)) %>%
+	select(season, date, game, team1, team2, score1, score2,
+				 fav_538_won, fav_538_prob, fav_538_team, 
+				 fav_wplive_won, fav_wplive_prob, fav_wplive_team,
+				 fav_wpcurrent_won, fav_wpcurrent_prob, fav_wpcurrent_team,
+				 fav_wpprev_won, fav_wpprev_prob, fav_wpprev_team)
 
 
 fwp <- c("ANA", "ARI", "ATL", "BAL", "BOS", "CHC", "CHW", "CIN", "CLE", "COL",
@@ -135,8 +145,9 @@ favorite_win_prob <- read_csv("data/money_line.csv") %>%
 	mutate(money_prob1=map_dbl(money_line1, get_moneyline_prob),
 				 money_prob2=map_dbl(money_line2, get_moneyline_prob),
 				 fav_money_won=ifelse(money_prob1 > money_prob2, score1 > score2, score2 > score1),
-				 fav_money_prob=ifelse(money_prob1 > money_prob2, money_prob1, money_prob2)
-				 ) %>%
+				 fav_money_prob=ifelse(money_prob1 > money_prob2, money_prob1, money_prob2),
+				 fav_money_team=ifelse(money_prob1 > money_prob2, team1, team2)
+				) %>%
 	inner_join(., name_convert, by=c("team1"="ml")) %>%
 	inner_join(., name_convert, by=c("team2"="ml")) %>%
 	select(-team1, -team2) %>%
@@ -148,15 +159,15 @@ favorite_win_prob <- read_csv("data/money_line.csv") %>%
 
 # make the data frame "tidy"
 tidy_win_prob <- favorite_win_prob %>%
-	mutate(fte=paste(fav_538_won, fav_538_prob, sep="_"),
-				 wplive=paste(fav_wplive_won, fav_wplive_prob, sep="_"),
-				 wpcurrent=paste(fav_wpcurrent_won, fav_wpcurrent_prob, sep="_"),
-				 wpprev=paste(fav_wpprev_won, fav_wpprev_prob, sep="_"),
-				 money=paste(fav_money_won, fav_money_prob, sep="_")
+	mutate(fte=paste(fav_538_won, fav_538_prob, fav_538_team, sep="_"),
+				 wplive=paste(fav_wplive_won, fav_wplive_prob, fav_wplive_team, sep="_"),
+				 wpcurrent=paste(fav_wpcurrent_won, fav_wpcurrent_prob, fav_wpcurrent_team, sep="_"),
+				 wpprev=paste(fav_wpprev_won, fav_wpprev_prob, fav_wpprev_team, sep="_"),
+				 money=paste(fav_money_won, fav_money_prob, fav_money_team, sep="_")
 				 ) %>%
 	select(-starts_with("fav")) %>%
 	gather(model, won_prob, fte, wplive, wpcurrent, wpprev, money) %>%
-	separate(won_prob, into=c("won", "prob"), sep="_", convert=TRUE)
+	separate(won_prob, into=c("won", "prob", "team"), sep="_", convert=TRUE)
 
 
 write_csv(tidy_win_prob, "data/model_data.csv")
