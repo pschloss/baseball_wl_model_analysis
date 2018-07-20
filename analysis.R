@@ -159,6 +159,9 @@ tidy_win_prob <- favorite_win_prob %>%
 	separate(won_prob, into=c("won", "prob"), sep="_", convert=TRUE)
 
 
+write_csv(tidy_win_prob, "data/model_data.csv")
+
+
 overall_win_prob <- tidy_win_prob %>%
 	group_by(model) %>%
 	summarize(mean=mean(won)) %>%
